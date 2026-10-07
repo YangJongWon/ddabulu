@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>itemem</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>itemem</h1>
+    <span id="count" class="muted"></span>
+  </header>
+
+  <section>
+    <h2 id="formTitle">이 페이지 상품</h2>
+    <form id="form">
+      <label>상품명 <input name="name" required></label>
+      <div class="two">
+        <label>브랜드 <input name="brand"></label>
+        <label>가격 <input name="price" inputmode="numeric"></label>
+      </div>
+      <label>카테고리 <input name="category" placeholder="예: 주방 > 텀블러"></label>
+      <div class="two">
+        <label>쇼핑몰 <input name="shop"></label>
+        <label>구매일 <input name="purchasedAt" type="date"></label>
+      </div>
+      <button type="submit">샀어요 · 기록</button>
+      <p id="formMsg" class="msg"></p>
+    </form>
+  </section>
+
+  <section>
+    <h2>내 물건</h2>
+    <input id="search" type="search" placeholder="검색 (이름·브랜드·카테고리)">
+    <ul id="list"></ul>
+  </section>
+
+  <footer>
+    <button id="export" class="ghost">내보내기</button>
+    <label class="ghost file">가져오기<input id="import" type="file" accept="application/json"></label>
+  </footer>
+  <script src="popup.js"></script>
+</body>
+</html>

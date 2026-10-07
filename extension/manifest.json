@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "itemem",
+  "version": "0.1.0",
+  "description": "쇼핑 중인 상품이 이미 산 물건과 겹치는지 바로 알려줍니다.",
+  "permissions": ["storage", "unlimitedStorage"],
+  "host_permissions": ["https://stickershop.line-scdn.net/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "itemem", "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["lib/extract.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

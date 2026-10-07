@@ -1,0 +1,50 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const B = require("../lib/bundle.js");
+
+const H0 = "0".repeat(64);
+const flip = (hex, n) => {
+  const a = hex.split("");
+  for (let i = 0; i < n; i++) a[i] = "f";
+  return a.join("");
+};
+
+test("hamming counts differing bits", () => {
+  assert.equal(B.hamming(H0, H0), 0);
+  assert.equal(B.hamming(H0, flip(H0, 3)), 12);
+  assert.equal(B.hamming(H0, null), Infinity);
+});
+
+test("dhash marks left>right pixels", () => {
+  const gray = [9, 1, 9, 1, 9, 1, 9, 1, 9];
+  assert.equal(B.dhash(gray, 8, 1), "aa");
+});
+
+test("counts each sticker as owned by id or by near-identical image", () => {
+  const owned = [
+    { id: "pkgA", name: "브라운 기본", packageKey: "line:1", members: [{ id: "10", hash: H0 }, { id: "11", hash: flip(H0, 30) }] },
+    { id: "pkgB", name: "브라운 스페셜", packageKey: "line:2", members: [{ id: "99", hash: flip(H0, 63) }] },
+  ];
+  const newPkg = [
+    { id: "10", hash: "abc" },
+    { id: "500", hash: flip(H0, 62) },
+    { id: "501", hash: flip(H0, 16) },
+  ];
+  const r = B.overlap(newPkg, owned, { selfKey: "line:3" });
+  assert.equal(r.total, 3);
+  assert.equal(r.owned, 2);
+  assert.equal(r.percent, 67);
+  assert.equal(r.stickers[0].how, "same-id");
+  assert.equal(r.stickers[1].owned.itemId, "pkgB");
+  assert.equal(r.stickers[1].how, "same-image");
+  assert.equal(r.stickers[2].owned, null);
+  assert.deepEqual(r.byPackage.map((p) => [p.name, p.count]), [["브라운 기본", 1], ["브라운 스페셜", 1]]);
+});
+
+test("the package being viewed and disposed packages are not counted against itself", () => {
+  const owned = [
+    { id: "self", name: "같은 패키지", packageKey: "line:7", members: [{ id: "1", hash: H0 }] },
+    { id: "gone", name: "처분함", status: "disposed", packageKey: "line:8", members: [{ id: "1", hash: H0 }] },
+  ];
+  assert.equal(B.overlap([{ id: "1", hash: H0 }], owned, { selfKey: "line:7" }).owned, 0);
+});
