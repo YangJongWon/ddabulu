@@ -9,8 +9,7 @@
   //   "categories": { "<categoryHead>": { "all" | "<age>" | "<age>-<gender>": [{ "name", "category", "n" }, …] } }
   // }
   // Only rows seen often enough over several days belong in it; sensitive categories never do.
-  // https://api.ddabulu.com/v1/recs.json once ddabulu-api is deployed.
-  const RECS_URL = "";
+  const RECS_URL = "https://api.ddabulu.com/v1/recs.json";
   const MAX_AGE = 24 * 60 * 60 * 1000;
   const LIMIT = 3;
   // Name likeness at or above this means the same product (another listing, size, or color of it).
