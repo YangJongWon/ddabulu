@@ -2,43 +2,167 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <title>itemem</title>
+  <title>Ddabulu</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header>
-    <h1>itemem</h1>
+    <h1>Ddabulu</h1>
     <span id="count" class="muted"></span>
+    <button id="export" class="ghost small" data-i18n="내보내기">내보내기</button>
+    <label class="ghost file small"><span data-i18n="가져오기">가져오기</span><input id="import" type="file" accept="application/json"></label>
+    <button type="button" id="share" class="icon-btn" data-i18n-title="목록 공유" title="목록 공유" aria-label="목록 공유">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+    </button>
+    <button type="button" id="gear" class="gear" data-i18n-title="환경설정" title="환경설정">⚙</button>
   </header>
+  <section id="consent" class="consent" hidden>
+    <h2 data-i18n="Ddabulu를 더 정확하게 만들어 주세요">Ddabulu를 더 정확하게 만들어 주세요</h2>
+    <label class="chk"><input type="checkbox" id="cStats">
+      <span><b data-i18n="익명 사용 통계 보내기 (선택)">익명 사용 통계 보내기 (선택)</b>
+      <small data-i18n="인식 결과·매칭 점수·피드백과, 이어서 본 상품들의 이름을 보내요. URL과 내 물건 목록은 보내지 않아요. 여럿이 모인 집계만 다른 사람에게 추천으로 보여요.">인식 결과·매칭 점수·피드백과, 이어서 본 상품들의 이름을 보내요. URL과 내 물건 목록은 보내지 않아요. 여럿이 모인 집계만 다른 사람에게 추천으로 보여요.</small></span></label>
+    <label class="chk"><input type="checkbox" id="cModel">
+      <span><b data-i18n="학습 모델의 상업적 활용 (선택)">학습 모델의 상업적 활용 (선택)</b>
+      <small data-i18n="통계로 학습한 인식·추천 모델을 제3자에게 제공할 수 있어요. 원본 데이터는 제공하지 않아요.">통계로 학습한 인식·추천 모델을 제3자에게 제공할 수 있어요. 원본 데이터는 제공하지 않아요.</small></span></label>
+    <div class="two">
+      <label><span data-i18n="연령대 (선택)">연령대 (선택)</span> <select id="cAge" class="pick age-pick"></select></label>
+      <label><span data-i18n="성별 (선택)">성별 (선택)</span> <select id="cGender" class="pick gender-pick"></select></label>
+    </div>
+    <div class="acts">
+      <button type="button" id="cAll" data-i18n="모두 동의하고 시작">모두 동의하고 시작</button>
+      <button type="button" id="cSome" class="ghost" data-i18n="동의 없이 시작">동의 없이 시작</button>
+    </div>
+    <p class="muted" data-i18n="동의하지 않아도 모든 기능을 똑같이 쓸 수 있어요. 환경설정에서 언제든 바꿀 수 있어요.">동의하지 않아도 모든 기능을 똑같이 쓸 수 있어요. 환경설정에서 언제든 바꿀 수 있어요.</p>
+    <details class="sample"><summary data-i18n="보내는 데이터 예시">보내는 데이터 예시</summary><pre id="cSample"></pre></details>
+  </section>
+  <section id="exportBox" hidden>
+    <h2 data-i18n="내보내기">내보내기</h2>
+    <label class="opt"><input type="radio" name="exScope" value="all" checked> <span data-i18n="전체">전체</span></label>
+    <label class="opt"><input type="radio" name="exScope" value="shown"> <span data-i18n="지금 목록에 보이는 것">지금 목록에 보이는 것</span> (<span id="exShownN">0</span>)</label>
+    <label class="opt range-opt">
+      <input type="radio" name="exScope" value="range"> <span data-i18n="구매일 기간">구매일 기간</span>
+      <input id="exFrom" type="date"> <span>~</span> <input id="exTo" type="date">
+    </label>
+    <div class="ex-bar">
+      <select id="exWho" class="pick">
+        <option value="all" data-i18n="MY와 선물 모두">MY와 선물 모두</option>
+        <option value="mine" data-i18n="MY만">MY만</option>
+        <option value="gift" data-i18n="선물만">선물만</option>
+      </select>
+      <button type="button" id="exGo" data-i18n="내보내기">내보내기</button>
+    </div>
+    <p id="exCount" class="msg"></p>
+  </section>
+  <section id="settings" hidden>
+    <div class="set-bar">
+      <h2 data-i18n="언어">언어</h2>
+      <button type="button" id="saveSettings" data-i18n="저장">저장</button>
+    </div>
+    <select id="langPick" class="pick">
+      <option value="system" data-i18n="시스템 언어">시스템 언어</option>
+      <option value="ko">한국어</option>
+      <option value="zh">中文</option>
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+    </select>
+    <h2 data-i18n="표시">표시</h2>
+    <div class="mute-row">
+      <select id="mutePick" class="pick"></select>
+      <span id="customBox" class="custom" hidden>
+        <input id="customDays" type="number" min="1" max="3650" step="1" data-i18n-ph="일수" placeholder="일수">
+        <span data-i18n="일">일</span>
+      </span>
+    </div>
+    <h2 class="sec" data-i18n="표시하지 않는 사이트">표시하지 않는 사이트</h2>
+    <div id="siteList" class="site-list"></div>
+    <div class="gift-new">
+      <input id="siteInput" placeholder="example.com">
+      <button type="button" id="siteAdd" data-i18n="등록">등록</button>
+    </div>
+    <h2 class="sec" data-i18n="익명 통계">익명 통계</h2>
+    <label class="chk"><input type="checkbox" id="sStats">
+      <span><b data-i18n="익명 사용 통계 보내기 (선택)">익명 사용 통계 보내기 (선택)</b>
+      <small data-i18n="인식 결과·매칭 점수·피드백과, 이어서 본 상품들의 이름을 보내요. URL과 내 물건 목록은 보내지 않아요. 여럿이 모인 집계만 다른 사람에게 추천으로 보여요.">인식 결과·매칭 점수·피드백과, 이어서 본 상품들의 이름을 보내요. URL과 내 물건 목록은 보내지 않아요. 여럿이 모인 집계만 다른 사람에게 추천으로 보여요.</small></span></label>
+    <label class="chk"><input type="checkbox" id="sModel">
+      <span><b data-i18n="학습 모델의 상업적 활용 (선택)">학습 모델의 상업적 활용 (선택)</b>
+      <small data-i18n="통계로 학습한 인식·추천 모델을 제3자에게 제공할 수 있어요. 원본 데이터는 제공하지 않아요.">통계로 학습한 인식·추천 모델을 제3자에게 제공할 수 있어요. 원본 데이터는 제공하지 않아요.</small></span></label>
+    <div class="two">
+      <label><span data-i18n="연령대 (선택)">연령대 (선택)</span> <select id="sAge" class="pick age-pick"></select></label>
+      <label><span data-i18n="성별 (선택)">성별 (선택)</span> <select id="sGender" class="pick gender-pick"></select></label>
+    </div>
+    <details class="sample"><summary id="sQueueSum"></summary><pre id="sQueue"></pre></details>
+    <p id="setMsg" class="msg"></p>
+  </section>
+  <div id="muted" class="muted-bar" hidden>
+    <span id="mutedText"></span>
+    <button type="button" id="unmute" data-i18n="다시 표시">다시 표시</button>
+  </div>
 
   <section>
-    <h2 id="formTitle">이 페이지 상품</h2>
+    <h2 id="formTitle" data-i18n="이 페이지 상품">이 페이지 상품</h2>
     <form id="form">
-      <label>상품명 <input name="name" required></label>
+      <label><span data-i18n="상품명">상품명</span> <input name="name" required></label>
       <div class="two">
-        <label>브랜드 <input name="brand"></label>
-        <label>가격 <input name="price" inputmode="numeric"></label>
+        <label><span data-i18n="브랜드">브랜드</span> <input name="brand"></label>
+        <label><span data-i18n="가격">가격</span> <input name="price" inputmode="numeric"></label>
       </div>
-      <label>카테고리 <input name="category" placeholder="예: 주방 > 텀블러"></label>
+      <label><span data-i18n="카테고리">카테고리</span> <input name="category" data-i18n-ph="예: 주방 > 텀블러" placeholder="예: 주방 > 텀블러"></label>
       <div class="two">
-        <label>쇼핑몰 <input name="shop"></label>
-        <label>구매일 <input name="purchasedAt" type="date"></label>
+        <label><span data-i18n="쇼핑몰">쇼핑몰</span> <input name="shop"></label>
+        <label><span data-i18n="구매일">구매일</span> <input name="purchasedAt" type="date"></label>
       </div>
-      <button type="submit">샀어요 · 기록</button>
+      <div class="acts">
+        <button type="submit" data-i18n="샀어요">샀어요</button>
+        <button type="button" id="giftBtn" class="ghost" data-i18n="선물했어요">선물했어요</button>
+        <button type="button" id="candBtn" class="ghost" data-i18n="후보" data-i18n-title="사지 않았지만 고민 중인 상품" title="사지 않았지만 고민 중인 상품">후보</button>
+      </div>
+      <div id="giftBox" hidden>
+        <p class="muted" data-i18n="받는 사람. 목록에 없으면 새로 등록해요.">받는 사람. 목록에 없으면 새로 등록해요.</p>
+        <div id="people"></div>
+        <div class="gift-new">
+          <input id="recipient" data-i18n-ph="새 사람" placeholder="새 사람">
+          <button type="button" id="giftSave" data-i18n="등록">등록</button>
+        </div>
+        <label class="chk as-cand"><input type="checkbox" id="giftAsCand"> <span data-i18n="후보로만 담기">후보로만 담기</span></label>
+      </div>
       <p id="formMsg" class="msg"></p>
     </form>
   </section>
 
   <section>
-    <h2>내 물건</h2>
-    <input id="search" type="search" placeholder="검색 (이름·브랜드·카테고리)">
+    <div class="list-bar">
+      <h2 data-i18n="내 물건 · 선물">내 물건 · 선물</h2>
+      <select id="view" class="pick">
+        <option value="all" data-i18n="전체">전체</option>
+        <option value="held" data-i18n="내 물건 · 선물">내 물건 · 선물</option>
+        <option value="candidate" data-i18n="후보">후보</option>
+      </select>
+    </div>
+    <input id="search" type="search" data-i18n-ph="검색 (이름·브랜드·카테고리·받는 사람·URL)" placeholder="검색 (이름·브랜드·카테고리·받는 사람·URL)">
+    <div class="range">
+      <span data-i18n="기간">기간</span>
+      <input id="from" type="date">
+      <span>~</span>
+      <input id="to" type="date">
+      <button type="button" id="rangeClear" class="ghost" data-i18n-title="기간 지우기" title="기간 지우기">×</button>
+    </div>
     <ul id="list"></ul>
   </section>
 
-  <footer>
-    <button id="export" class="ghost">내보내기</button>
-    <label class="ghost file">가져오기<input id="import" type="file" accept="application/json"></label>
-  </footer>
+  <dialog id="ask" class="ask">
+    <div class="ask-body">
+      <p id="askText"></p>
+      <div class="acts">
+        <button type="button" id="askNo" class="ghost" data-i18n="취소">취소</button>
+        <button type="button" id="askYes" class="danger"></button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="lib/i18n.js"></script>
+  <script src="lib/similarity.js"></script>
+  <script src="lib/share.js"></script>
+  <script src="lib/telemetry.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

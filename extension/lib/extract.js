@@ -40,11 +40,12 @@
     return nodes;
   }
 
-  function firstImage(img) {
-    if (!img) return "";
-    if (Array.isArray(img)) return firstImage(img[0]);
-    if (typeof img === "object") return img.url || img.contentUrl || "";
-    return String(img);
+  function imageList(img) {
+    if (!img) return [];
+    if (Array.isArray(img)) return img.flatMap(imageList);
+    if (typeof img === "object") return imageList(img.url || img.contentUrl || "");
+    const s = String(img).trim();
+    return s ? [s] : [];
   }
 
   function parsePrice(v) {
@@ -99,6 +100,12 @@
       }
     })();
 
+    const images = [];
+    for (const raw of [...imageList(ld && ld.image), meta(doc, "og:image")]) {
+      const abs = absolute(raw, href);
+      if (/^https?:\/\//i.test(abs) && !images.includes(abs)) images.push(abs);
+    }
+
     return {
       name: String(name).trim(),
       brand: String(brand || meta(doc, "product:brand") || "").trim(),
@@ -107,12 +114,15 @@
         (ld && offerPrice(ld.offers)) ||
         parsePrice(meta(doc, "product:price:amount")) ||
         parsePrice(meta(doc, "og:price:amount")),
-      image: absolute(firstImage(ld && ld.image) || meta(doc, "og:image"), href),
+      image: images[0] || "",
+      images,
       shop: (site && site.shop) || host,
       productId: site ? href.match(site.re)[1] : (ld && (ld.sku || ld.productID)) || "",
       gtin: (ld && (ld.gtin13 || ld.gtin || ld.gtin12 || ld.gtin8)) || "",
       url: href.split("#")[0],
       collectible: Boolean(site && site.collectible),
+      // Which sources recognised the page. Only telemetry reads it; records drop it.
+      via: { site: Boolean(site), ld: Boolean(ld), og: ogType.includes("product") },
     };
   }
 

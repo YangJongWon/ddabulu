@@ -20,6 +20,13 @@ test("dhash marks left>right pixels", () => {
   assert.equal(B.dhash(gray, 8, 1), "aa");
 });
 
+test("image distance becomes a readable percent", () => {
+  assert.equal(B.imagePercent(0), 100);
+  assert.equal(B.imagePercent(B.SAME_IMAGE_BITS), 85);
+  assert.equal(B.imagePercent(B.SAME_IMAGE_BITS + 48), 0);
+  assert.equal(B.imagePercent(Infinity), null);
+});
+
 test("counts each sticker as owned by id or by near-identical image", () => {
   const owned = [
     { id: "pkgA", name: "브라운 기본", packageKey: "line:1", members: [{ id: "10", hash: H0 }, { id: "11", hash: flip(H0, 30) }] },
@@ -35,10 +42,33 @@ test("counts each sticker as owned by id or by near-identical image", () => {
   assert.equal(r.owned, 2);
   assert.equal(r.percent, 67);
   assert.equal(r.stickers[0].how, "same-id");
+  assert.equal(r.stickers[0].percent, 100);
   assert.equal(r.stickers[1].owned.itemId, "pkgB");
   assert.equal(r.stickers[1].how, "same-image");
+  assert.equal(r.stickers[1].percent, B.imagePercent(4));
   assert.equal(r.stickers[2].owned, null);
+  assert.equal(r.stickers[2].nearest.itemId, "pkgA");
+  assert.equal(r.stickers[2].percent, B.imagePercent(56));
   assert.deepEqual(r.byPackage.map((p) => [p.name, p.count]), [["브라운 기본", 1], ["브라운 스페셜", 1]]);
+});
+
+test("package score is the average of stamp comparisons against that package", () => {
+  const owned = [{ id: "melon", name: "멜론", members: [{ id: "a", hash: H0 }] }];
+  const viewing = [
+    { id: "x", hash: H0 },
+    { id: "y", hash: flip(H0, 16) },
+  ];
+  const r = B.overlap(viewing, owned, { selfKey: "line:9" });
+  const expected = Math.round((100 + B.imagePercent(64)) / 2);
+  assert.equal(r.versus.length, 1);
+  assert.equal(r.versus[0].percent, expected);
+  assert.equal(r.versus[0].counted, 2);
+  assert.ok(r.versus[0].percent < 90);
+});
+
+test("a gifted package is not counted as stamps already owned", () => {
+  const owned = [{ id: "gift", name: "선물", purpose: "gift", recipient: "민수", packageKey: "line:4", members: [{ id: "1", hash: H0 }] }];
+  assert.equal(B.overlap([{ id: "1", hash: H0 }], owned, { selfKey: "line:9" }).owned, 0);
 });
 
 test("the package being viewed and disposed packages are not counted against itself", () => {
