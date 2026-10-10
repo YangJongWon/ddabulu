@@ -287,9 +287,13 @@ async function recsTable() {
   return recs ? recs.table : null;
 }
 
+// After a failed send, wait this long before trying again instead of retrying on every new event.
+const RETRY_AFTER = 30 * 60 * 1000;
+
 async function flush() {
   if (!Tel.ENDPOINT) return;
-  const { consent, telemetryQueue = [], lang = "system" } = await chrome.storage.local.get(["consent", "telemetryQueue", "lang"]);
+  const { consent, telemetryQueue = [], lang = "system", telemetryRetryAt = 0 } = await chrome.storage.local.get(["consent", "telemetryQueue", "lang", "telemetryRetryAt"]);
+  if (Date.now() < telemetryRetryAt) return;
   if (!Tel.consentOf(consent).stats) {
     await chrome.storage.local.set({ telemetryQueue: [] });
     return;
@@ -304,8 +308,12 @@ async function flush() {
     headers: { "content-type": "application/json" },
     credentials: "omit",
     body: JSON.stringify(body),
-  });
-  if (!res.ok) return;
+  }).catch(() => null);
+  // Down, over its daily ceiling (429), or unreachable: keep the queue (it is capped) and back off.
+  if (!res || !res.ok) {
+    await chrome.storage.local.set({ telemetryRetryAt: Date.now() + RETRY_AFTER });
+    return;
+  }
   const { telemetryQueue: now = [] } = await chrome.storage.local.get("telemetryQueue");
   await chrome.storage.local.set({ telemetryQueue: now.slice(telemetryQueue.length), telemetryFlushedAt: Date.now() });
 }
