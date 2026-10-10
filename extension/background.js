@@ -1,9 +1,10 @@
-importScripts("lib/similarity.js", "lib/bundle.js", "lib/telemetry.js", "lib/recs.js");
+importScripts("lib/similarity.js", "lib/bundle.js", "lib/telemetry.js", "lib/recs.js", "lib/vault.js");
 
 const Sim = globalThis.ItememSim;
 const Bundle = globalThis.ItememBundle;
 const Tel = globalThis.ItememTelemetry;
 const Recs = globalThis.ItememRecs;
+const Vault = globalThis.ItememVault;
 
 const LINE_CDN = "https://stickershop.line-scdn.net";
 
@@ -84,7 +85,7 @@ async function loadItems() {
 }
 
 function saveItems(items) {
-  return chrome.storage.local.set({ items });
+  return chrome.storage.local.set({ items }).then(scheduleCloudPush);
 }
 
 const FIELDS = ["name", "brand", "category", "price", "image", "images", "shop", "productId", "gtin", "url", "options", "collectible", "purchasedAt", "memo", "members", "packageKey"];
@@ -325,6 +326,150 @@ async function setBadge(tabId, result) {
   await chrome.action.setBadgeBackgroundColor({ tabId, color: result.exact.length ? "#d93025" : "#e8710a" });
 }
 
+
+// ---- Encrypted cloud backup. The recovery key is made here and never leaves this browser except to ddabulu.com's
+// own page (to open the list there) or the user's eyes. The server only ever gets the sealed box.
+const API_BASE = "https://api.ddabulu.com";
+const SITE = "https://ddabulu.com";
+let pushTimer = null;
+let cloudLock = Promise.resolve();
+
+function cloudSerial(fn) {
+  const run = cloudLock.then(fn, fn);
+  cloudLock = run.catch(() => {});
+  return run;
+}
+
+async function cloudState() {
+  const { cloud = {} } = await chrome.storage.local.get("cloud");
+  return cloud;
+}
+
+async function setCloud(patch) {
+  const next = { ...(await cloudState()), ...patch };
+  await chrome.storage.local.set({ cloud: next });
+  return next;
+}
+
+function signedIn(c) {
+  return Boolean(c.token && c.exp > Date.now());
+}
+
+async function digest(text) {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Uploads only when the list actually changed: image hashes refreshed while browsing do not count.
+function cloudPush(force = false) {
+  return cloudSerial(async () => {
+    const c = await cloudState();
+    if (!signedIn(c)) return { pushed: false, reason: "signin" };
+    const key = c.key || (await setCloud({ key: Vault.newRecoveryKey() })).key;
+    const { consent } = await chrome.storage.local.get("consent");
+    const profile = Tel.consentOf(consent);
+    const payload = Vault.slim(await loadItems(), { age: profile.age, gender: profile.gender });
+    const sum = await digest(JSON.stringify(payload));
+    if (!force && sum === c.digest && c.pushedAt) return { pushed: false, reason: "same", pushedAt: c.pushedAt };
+    const res = await fetch(`${API_BASE}/v1/vault`, {
+      method: "PUT",
+      headers: { "content-type": "application/json", authorization: `Bearer ${c.token}` },
+      body: JSON.stringify({ box: await Vault.seal(key, payload) }),
+    });
+    if (res.status === 401) {
+      await setCloud({ token: null, exp: 0 });
+      return { pushed: false, reason: "signin" };
+    }
+    if (!res.ok) throw new Error(`backup ${res.status}`);
+    const { updatedAt } = await res.json();
+    await setCloud({ pushedAt: updatedAt, digest: sum });
+    return { pushed: true, pushedAt: updatedAt };
+  });
+}
+
+function scheduleCloudPush() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => cloudPush().catch(() => {}), 4000);
+}
+
+// Another device's list, opened with its recovery key and merged in like an import.
+async function cloudPull(input) {
+  const c = await cloudState();
+  if (!signedIn(c)) return { ok: false, reason: "signin" };
+  const key = Vault.normalizeKey(input || c.key);
+  if (!key) return { ok: false, reason: "key" };
+  const res = await fetch(`${API_BASE}/v1/vault`, { headers: { authorization: `Bearer ${c.token}` } });
+  if (res.status === 401) {
+    await setCloud({ token: null, exp: 0 });
+    return { ok: false, reason: "signin" };
+  }
+  if (res.status === 404) return { ok: false, reason: "empty" };
+  if (!res.ok) throw new Error(`restore ${res.status}`);
+  let data;
+  try {
+    data = await Vault.open(key, (await res.json()).box);
+  } catch {
+    return { ok: false, reason: "key" };
+  }
+  // From now on this browser backs up under the same key, so every device opens the same box.
+  await setCloud({ key, digest: null });
+  const merged = await handlers.import({ items: Array.isArray(data.items) ? data.items : [] });
+  return { ok: true, ...merged };
+}
+
+async function cloudForget() {
+  const c = await cloudState();
+  if (signedIn(c)) {
+    await fetch(`${API_BASE}/v1/vault`, { method: "DELETE", headers: { authorization: `Bearer ${c.token}` } }).catch(() => {});
+  }
+  await chrome.storage.local.remove("cloud");
+}
+
+function fromPopup(sender) {
+  return sender.id === chrome.runtime.id && !sender.tab;
+}
+
+function fromSite(sender) {
+  try {
+    return Boolean(sender.tab) && new URL(sender.url).origin === SITE;
+  } catch {
+    return false;
+  }
+}
+
+function guard(ok, fn) {
+  return (msg, sender) => {
+    if (!ok(sender)) throw new Error("not allowed");
+    return fn(msg, sender);
+  };
+}
+
+const sitePopup = (sender) => fromSite(sender) || fromPopup(sender);
+
+const cloudHandlers = {
+  cloudHello: guard(sitePopup, async () => {
+    const c = await cloudState();
+    return { connected: signedIn(c), hasKey: Boolean(c.key) };
+  }),
+  // ddabulu.com hands over the session after Google sign-in, then the first backup goes up right away.
+  cloudSession: guard(fromSite, async ({ data }) => {
+    if (!data || typeof data.token !== "string" || !(data.exp > Date.now())) throw new Error("session");
+    await setCloud({ token: data.token, exp: data.exp, digest: null });
+    return cloudPush(true);
+  }),
+  cloudKey: guard(sitePopup, async () => {
+    const c = await cloudState();
+    return c.key ? { key: Vault.formatKey(c.key) } : null;
+  }),
+  cloudPush: guard(sitePopup, () => cloudPush(true)),
+  cloudStatus: guard(fromPopup, async () => {
+    const c = await cloudState();
+    return { connected: signedIn(c), expired: Boolean(c.token) && !signedIn(c), hasKey: Boolean(c.key), pushedAt: c.pushedAt || "" };
+  }),
+  cloudPull: guard(fromPopup, ({ key }) => cloudPull(key)),
+  cloudForget: guard(fromPopup, () => cloudForget()),
+};
+
 const handlers = {
   async check({ product }, sender) {
     const items = await loadItems();
@@ -507,6 +652,8 @@ async function startTabs() {
   // Back to the page the user was on when they installed.
   await chrome.tabs.update(welcomeFrom, { active: true }).catch(() => {});
 }
+
+Object.assign(handlers, cloudHandlers);
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   const handler = handlers[msg && msg.type];

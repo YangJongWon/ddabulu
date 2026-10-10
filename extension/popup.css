@@ -120,3 +120,13 @@ body.welcome { width: auto; max-width: 440px; margin: 48px auto; border: 1px sol
 .ov.mid { color: #e8710a; }
 .ov.hi { color: var(--danger); }
 .as-cand { margin: 8px 0 0; color: #9334e6; font-weight: 700; }
+.cloud-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.cloud-acts button { padding: 5px 10px; font-size: 12px; }
+.cloud-acts button[hidden] { display: none; }
+.del-text { color: var(--danger); }
+.keybox { margin-bottom: 8px; padding: 8px; border-radius: 8px; background: var(--soft); }
+.keybox[hidden] { display: none; }
+.keybox code { display: block; margin-bottom: 6px; font: 600 13px/1.4 ui-monospace, Consolas, monospace; letter-spacing: .03em; word-break: break-all; }
+.keybox button { padding: 4px 10px; font-size: 12px; }
+.keybox p { margin: 6px 0 0; }
+#cloudRestore[hidden] { display: none; }

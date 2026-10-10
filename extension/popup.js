@@ -209,6 +209,81 @@ async function paintQueue() {
   $("sQueue").textContent = batchText(telemetryQueue, consent) || "[]";
 }
 
+// ---- Cloud backup: sealed with a recovery key only this user holds, viewable at ddabulu.com.
+const SITE = "https://ddabulu.com";
+
+async function paintCloud() {
+  let st;
+  try {
+    st = await call({ type: "cloudStatus" });
+  } catch {
+    return;
+  }
+  const on = st.connected;
+  $("cloudState").textContent = st.expired
+    ? tr("로그인이 만료됐어요. 다시 연결해 주세요.")
+    : !on
+      ? tr("연결 안 됨. Google로 연결하면 목록을 내 복구 키로 암호화해서 백업하고, ddabulu.com에서 볼 수 있어요.")
+      : st.pushedAt
+        ? tr("연결됨 · 마지막 백업 {date}", { date: new Date(st.pushedAt).toLocaleString() })
+        : tr("연결됨 · 아직 백업 전");
+  $("cloudConnect").hidden = on;
+  for (const id of ["cloudPush", "cloudOpen", "cloudShowKey"]) $(id).hidden = !on;
+  $("cloudForget").hidden = !(on || st.hasKey);
+  $("cloudRestore").hidden = !on;
+}
+
+async function cloudAction(fn) {
+  $("cloudMsg").textContent = "";
+  try {
+    await fn();
+  } catch (err) {
+    $("cloudMsg").textContent = err.message || tr("백업하지 못했어요");
+  }
+  await paintCloud();
+}
+
+$("cloudConnect").addEventListener("click", () => chrome.tabs.create({ url: `${SITE}/account?from=extension` }));
+$("cloudOpen").addEventListener("click", () => chrome.tabs.create({ url: `${SITE}/account` }));
+$("cloudPush").addEventListener("click", () => cloudAction(async () => {
+  const r = await call({ type: "cloudPush" });
+  $("cloudMsg").textContent = r && r.pushed ? tr("백업했어요") : r && r.reason === "signin" ? tr("로그인이 만료됐어요. 다시 연결해 주세요.") : tr("백업하지 못했어요");
+}));
+$("cloudShowKey").addEventListener("click", () => cloudAction(async () => {
+  const box = $("cloudKeyBox");
+  if (!box.hidden) {
+    box.hidden = true;
+    return;
+  }
+  const r = await call({ type: "cloudKey" });
+  $("cloudKey").textContent = (r && r.key) || "";
+  box.hidden = !(r && r.key);
+}));
+$("cloudCopy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("cloudKey").textContent);
+    $("cloudMsg").textContent = tr("복사했어요");
+  } catch {
+    $("cloudMsg").textContent = "";
+  }
+});
+$("cloudPull").addEventListener("click", () => cloudAction(async () => {
+  const r = await call({ type: "cloudPull", key: $("cloudRestoreKey").value });
+  if (r.ok) {
+    $("cloudRestoreKey").value = "";
+    $("cloudMsg").textContent = tr("가져오기: {added}개 추가, {skipped}개 중복이라 건너뜀", r);
+    await refresh();
+  } else {
+    $("cloudMsg").textContent = r.reason === "key" ? tr("복구 키가 맞지 않아요") : r.reason === "empty" ? tr("클라우드에 백업된 목록이 없어요") : tr("로그인이 만료됐어요. 다시 연결해 주세요.");
+  }
+}));
+$("cloudForget").addEventListener("click", () => cloudAction(async () => {
+  if (!(await ask(tr("연결을 해제하고 클라우드 사본을 지울까요? 이 브라우저의 기록은 그대로 남아요."), tr("연결 해제")))) return;
+  await call({ type: "cloudForget" });
+  $("cloudKeyBox").hidden = true;
+  $("cloudMsg").textContent = tr("연결을 해제했어요");
+}));
+
 async function openSettings() {
   const { muteUntil = 0, muteForever = false } = await chrome.storage.local.get(["muteUntil", "muteForever"]);
   $("langPick").value = langPref;
@@ -232,6 +307,7 @@ async function openSettings() {
     fillConsent("s", Tel.consentOf(consent));
     await paintQueue();
   }
+  await paintCloud();
 }
 
 function syncCustom() {

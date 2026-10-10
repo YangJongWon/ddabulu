@@ -5,6 +5,20 @@
     return;
   }
 
+  // ddabulu.com talks to the extension through this page only: the session after Google sign-in goes in, and the
+  // recovery key comes out so the site can open the user's list. Nothing else is relayed, and nowhere else.
+  if (location.origin === "https://ddabulu.com") {
+    const RELAY = { hello: "cloudHello", session: "cloudSession", getKey: "cloudKey", push: "cloudPush" };
+    window.addEventListener("message", (e) => {
+      const m = e.data;
+      if (e.source !== window || e.origin !== location.origin || !m || m.source !== "ddabulu-site" || !RELAY[m.type]) return;
+      chrome.runtime.sendMessage({ type: RELAY[m.type], data: m.data }, (res) => {
+        const ok = !chrome.runtime.lastError && res && res.ok;
+        window.postMessage({ source: "ddabulu-ext", id: m.id, ok: Boolean(ok), data: ok ? res.data : null }, location.origin);
+      });
+    });
+  }
+
   const CSS = `
     :host { all: initial; }
     .wrap { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 380px; max-width: calc(100vw - 32px);
