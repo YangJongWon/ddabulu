@@ -1,7 +1,7 @@
 (function (root) {
   // Anonymous usage stats. Every field that leaves the browser is built here from a fixed list, so this file
   // is the whole answer to "what does Ddabulu send". Nothing is sent while ENDPOINT is empty or before opt-in.
-  // https://api.ddabulu.com/v1/batch once server/ is deployed.
+  // https://api.ddabulu.com/v1/batch once ddabulu-api is deployed.
   const ENDPOINT = "";
   const SCHEMA = 1;
   // Bump when the consent wording changes in a way that needs asking again.
