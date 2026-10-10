@@ -70,7 +70,7 @@ Most other shops work too, as long as their pages describe the product (schema.o
 - Your purchases, gift recipients, maybes, and notes are stored **only in your browser** (`chrome.storage.local`). They are never sent anywhere.
 - On first install, Ddabulu asks whether to send **anonymous usage stats**. Every feature works the same if you say no, and you can change your mind in settings at any time.
 - The stats contain no URLs, no list of your things, no recipient names, and no persistent user ID. Everything that can be sent is defined in one file, [`extension/lib/telemetry.js`](extension/lib/telemetry.js), and the settings page shows the exact data waiting to be sent.
-- Details: [privacy policy](docs/PRIVACY.md) (Korean)
+- Details: [privacy policy](https://ddabulu.com/privacy?lang=en)
 
 ## Development
 

@@ -70,7 +70,7 @@
 - 购买记录、收礼人、候选和备注**只保存在你的浏览器里**（`chrome.storage.local`），不会发送到服务器。
 - 首次安装时会询问是否发送**匿名使用统计**。不同意也能使用全部功能，随时可以在设置中更改。
 - 统计中不包含网址、你的物品清单、收礼人姓名，也没有固定的用户 ID。所有可能发送的字段都定义在 [`extension/lib/telemetry.js`](extension/lib/telemetry.js) 这一个文件里，设置页面可以看到待发送的原始数据。
-- 详情：[隐私政策](docs/PRIVACY.md)（韩语）
+- 详情：[隐私政策](https://ddabulu.com/privacy?lang=zh)
 
 ## 开发
 
